@@ -11,12 +11,26 @@ module "eks" {
  # Optional: Adds the current caller identity as an administrator via cluster access entry
  enable_cluster_creator_admin_permissions = true
 
+ # Increase timeouts for EKS cluster operations
+ cluster_timeouts = {
+   create = "30m"
+   update = "30m" 
+   delete = "30m"
+ }
+
  eks_managed_node_groups = {
    example = {
      instance_types = ["t3.medium"]
      min_size       = 1
      max_size       = 3
      desired_size   = 2
+     
+     # Node group specific timeouts
+     timeouts = {
+       create = "30m"
+       update = "30m"
+       delete = "30m"
+     }
    }
  }
 
