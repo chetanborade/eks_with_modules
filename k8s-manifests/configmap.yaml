@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tictactoe-config
+  namespace: tictactoe
+data:
+  # Redis configuration (non-sensitive)
+  redis_host: "redis-service"
+  redis_port: "6379"
+  redis_url: "redis://redis-service:6379"
+  
+  # Service URLs
+  game_engine_url: "http://game-engine-service:8000"
+  backend_url: "http://backend-service:5000"
+  frontend_url: "http://frontend-service"
+  
+  # Service ports
+  game_engine_port: "8000"
+  backend_port: "5000"
+  frontend_port: "80"
+  
+  # Application configuration
+  log_level: "info"
+  api_timeout: "30s"
+  cors_origin: "*"
+  
+  # Environment
+  app_env: "development"
