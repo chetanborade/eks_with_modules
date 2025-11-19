@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Redis database
+  redis:
+    image: redis:7-alpine
+    container_name: tictactoe-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - tictactoe-network
+
+  # Python Game Engine
+  game-engine:
+    build:
+      context: ./app/game-engine
+      dockerfile: Dockerfile
+    container_name: tictactoe-game-engine
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PORT=8000
+    depends_on:
+      - redis
+    networks:
+      - tictactoe-network
+
+  # Node.js Backend API
+  backend:
+    build:
+      context: ./app/backend
+      dockerfile: Dockerfile
+    container_name: tictactoe-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - GAME_ENGINE_URL=http://game-engine:8000
+      - FRONTEND_URL=http://localhost:3000
+      - PORT=5000
+    depends_on:
+      - redis
+      - game-engine
+    networks:
+      - tictactoe-network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./app/frontend
+      dockerfile: Dockerfile
+    container_name: tictactoe-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - tictactoe-network
+
+networks:
+  tictactoe-network:
+    driver: bridge
