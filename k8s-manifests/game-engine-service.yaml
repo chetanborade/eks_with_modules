@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-engine-service
+  namespace: tictactoe
+  labels:
+    app: game-engine
+spec:
+  type: ClusterIP
+  selector:
+    app: game-engine
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP

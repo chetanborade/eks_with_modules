@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-engine-deployment
+  namespace: tictactoe
+  labels:
+    app: game-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: game-engine
+  template:
+    metadata:
+      labels:
+        app: game-engine
+    spec:
+      containers:
+      - name: game-engine
+        image: 703460697499.dkr.ecr.ap-south-1.amazonaws.com/tictactoe-game-engine:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: tictactoe-config
+              key: redis_host
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: tictactoe-config
+              key: redis_port
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: tictactoe-config
+              key: redis_url
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: tictactoe-config
+              key: game_engine_port
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        # Health checks
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      # Ensure Redis is available before starting
+      initContainers:
+      - name: wait-for-redis
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z redis-service 6379; do
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+          echo "Redis is available!"

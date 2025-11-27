@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: tictactoe
+  labels:
+    app: backend
+  annotations:
+    # Prometheus monitoring
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+  - name: http
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  # Session affinity disabled for stateless architecture
+  sessionAffinity: None
