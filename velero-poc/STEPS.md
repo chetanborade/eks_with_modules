@@ -214,7 +214,7 @@ aws s3 ls s3://$BUCKET_NAME
 ```
 
 ### Step 7: Create Velero IAM Policy
-Create `infrastructure/velero-complete-policy.json`:
+Create `infrastructure/velero-s3-policy.json`:
 ```json
 {
   "Version": "2012-10-17",
@@ -256,8 +256,8 @@ Create `infrastructure/velero-complete-policy.json`:
 Create policy:
 ```bash
 aws iam create-policy \
-  --policy-name velero-complete-policy \
-  --policy-document file://$(pwd)/infrastructure/velero-complete-policy.json
+  --policy-name velero-s3-policy \
+  --policy-document file://$(pwd)/infrastructure/velero-s3-policy.json
 ```
 
 ### Step 8: Create Velero Trust Policy
@@ -293,7 +293,7 @@ aws iam create-role \
 # Attach policy
 aws iam attach-role-policy \
   --role-name velero-role \
-  --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/velero-complete-policy
+  --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/velero-s3-policy
 
 # Verify
 aws iam list-attached-role-policies --role-name velero-role
@@ -417,13 +417,13 @@ curl <EXTERNAL-IP>
 **Solutions**:
 1. **Verify bucket name in policy**:
    ```bash
-   cat infrastructure/velero-complete-policy.json | grep s3
-   # Must match actual bucket name
-   ```
+    cat infrastructure/velero-s3-policy.json | grep s3
+    # Must match actual bucket name
+    ```
 
 2. **Check EC2 permissions for EBS snapshots**:
-   ```bash
-   aws iam get-policy-version --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/velero-complete-policy --version-id v1
+    ```bash
+    aws iam get-policy-version --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/velero-s3-policy --version-id v1
    # Should include ec2:DescribeVolumes, ec2:CreateSnapshot, etc.
    ```
 
@@ -463,7 +463,7 @@ velero-poc/
 ├── infrastructure/
 │   ├── ebs_trust_policy.json
 │   ├── velero_trust_policy.json
-│   └── velero-complete-policy.json
+│   └── velero-s3-policy.json
 ├── velero-v1.12.1-darwin-amd64/
 └── STEPS.md
 ```
@@ -516,9 +516,9 @@ export ACCOUNT_ID=$(terraform output -raw account_id)
 # Delete IAM resources
 aws iam detach-role-policy --role-name ebs-csi-role --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
 aws iam delete-role --role-name ebs-csi-role
-aws iam detach-role-policy --role-name velero-role --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/velero-complete-policy
+aws iam detach-role-policy --role-name velero-role --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/velero-s3-policy
 aws iam delete-role --role-name velero-role
-aws iam delete-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/velero-complete-policy
+aws iam delete-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/velero-s3-policy
 ```
 
 ### Step 4: Terraform Destroy
