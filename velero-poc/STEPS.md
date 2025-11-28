@@ -35,23 +35,7 @@ Create `infrastructure/ebs_trust_policy.json`:
 
 **CRITICAL**: Replace `ACCOUNT_ID`, `REGION`, and `OIDC_ID` with your actual values. Do NOT include `https://` in the Condition section.
 
-### Step 2: Create EBS CSI IAM Role
-```bash
-# Create role using absolute path
-aws iam create-role \
-  --role-name ebs-csi-role \
-  --assume-role-policy-document file://$(pwd)/infrastructure/ebs_trust_policy.json
-
-# Attach AWS managed policy (recommended)
-aws iam attach-role-policy \
-  --role-name ebs-csi-role \
-  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
-
-# Verify policy attached
-aws iam list-attached-role-policies --role-name ebs-csi-role
-```
-
-### Step 2.5: Clean Up Existing Roles (if they exist)
+### Step 1.5: Clean Up Existing Roles (if they exist)
 Before creating new roles with updated trust policies, check and clean up any existing roles:
 
 ```bash
@@ -73,6 +57,24 @@ aws iam list-attached-role-policies --role-name velero-role
 # aws iam delete-policy-version --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/[ACTUAL_POLICY_NAME] --version-id v2
 # aws iam delete-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/[ACTUAL_POLICY_NAME]
 ```
+
+### Step 2: Create EBS CSI IAM Role
+```bash
+# Create role using absolute path
+aws iam create-role \
+  --role-name ebs-csi-role \
+  --assume-role-policy-document file://$(pwd)/infrastructure/ebs_trust_policy.json
+
+# Attach AWS managed policy (recommended)
+aws iam attach-role-policy \
+  --role-name ebs-csi-role \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+
+# Verify policy attached
+aws iam list-attached-role-policies --role-name ebs-csi-role
+```
+
+
 
 ### Step 3: Install EBS CSI Driver Add-on
 ```bash
