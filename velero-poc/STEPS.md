@@ -12,27 +12,7 @@
 
 ## Part 1: EBS CSI Driver Setup with IRSA
 
-### Step 1: Get Cluster Information from Terraform
-```bash
-# Navigate to infrastructure directory
-cd /Users/one2n/Desktop/eks_with_modules/infrastructure
-
-# Get values from Terraform outputs
-export CLUSTER_NAME=$(terraform output -raw cluster_name)
-export OIDC_ID=$(terraform output -raw oidc_id)
-export AWS_REGION=$(terraform output -raw aws_region)
-export ACCOUNT_ID=$(terraform output -raw account_id)
-export BUCKET_NAME=$(terraform output -raw velero_bucket_name)
-
-# Verify values
-echo "Cluster: $CLUSTER_NAME"
-echo "OIDC ID: $OIDC_ID"
-echo "Region: $AWS_REGION"
-echo "Account: $ACCOUNT_ID"
-echo "Bucket: $BUCKET_NAME"
-```
-
-### Step 2: Create EBS CSI Trust Policy
+### Step 1: Create EBS CSI Trust Policy
 Create `infrastructure/ebs_trust_policy.json`:
 ```json
 {
@@ -55,7 +35,7 @@ Create `infrastructure/ebs_trust_policy.json`:
 
 **CRITICAL**: Replace `ACCOUNT_ID`, `REGION`, and `OIDC_ID` with your actual values. Do NOT include `https://` in the Condition section.
 
-### Step 3: Create EBS CSI IAM Role
+### Step 2: Create EBS CSI IAM Role
 ```bash
 # Create role using absolute path
 aws iam create-role \
@@ -71,7 +51,30 @@ aws iam attach-role-policy \
 aws iam list-attached-role-policies --role-name ebs-csi-role
 ```
 
-### Step 4: Install EBS CSI Driver Add-on
+### Step 2.5: Clean Up Existing Roles (if they exist)
+Before creating new roles with updated trust policies, check and clean up any existing roles:
+
+```bash
+# Check if EBS CSI role exists
+aws iam get-role --role-name ebs-csi-role
+# If it exists, delete it:
+# aws iam detach-role-policy --role-name ebs-csi-role --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+# aws iam delete-role --role-name ebs-csi-role
+
+# Check if Velero role exists and what policies are attached
+aws iam get-role --role-name velero-role
+aws iam list-attached-role-policies --role-name velero-role
+# If it exists, delete it and its custom policies:
+# aws iam detach-role-policy --role-name velero-role --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/[ACTUAL_POLICY_NAME]
+# aws iam delete-role --role-name velero-role
+# 
+# Delete policy versions if multiple exist:
+# aws iam list-policy-versions --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/[ACTUAL_POLICY_NAME]
+# aws iam delete-policy-version --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/[ACTUAL_POLICY_NAME] --version-id v2
+# aws iam delete-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/[ACTUAL_POLICY_NAME]
+```
+
+### Step 3: Install EBS CSI Driver Add-on
 ```bash
 # Install the add-on
 aws eks create-addon \
@@ -83,7 +86,7 @@ kubectl get pods -n kube-system | grep ebs
 # Wait until you see ebs-csi-controller and ebs-csi-node pods
 ```
 
-### Step 5: Configure IRSA for EBS CSI
+### Step 4: Configure IRSA for EBS CSI
 ```bash
 # Annotate service account
 kubectl annotate serviceaccount ebs-csi-controller-sa -n kube-system \
@@ -98,7 +101,7 @@ kubectl get pods -n kube-system -l app=ebs-csi-controller
 
 **Expected output**: 2 pods showing `6/6 Running`
 
-### Step 6: Test EBS CSI with nginx Application
+### Step 5: Test EBS CSI with nginx Application
 
 Create namespace:
 ```bash
@@ -200,7 +203,7 @@ kubectl get svc -n velero-test
 
 ## Part 2: Velero Backup Setup
 
-### Step 7: S3 Bucket (Already created by Terraform)
+### Step 6: S3 Bucket (Already created by Terraform)
 ```bash
 # Bucket was already created by Terraform during cluster creation
 echo "S3 bucket: $BUCKET_NAME"
@@ -208,7 +211,7 @@ aws s3 ls s3://$BUCKET_NAME
 # Should show empty bucket ready for Velero backups
 ```
 
-### Step 8: Create Velero IAM Policy
+### Step 7: Create Velero IAM Policy
 Create `infrastructure/velero-complete-policy.json`:
 ```json
 {
@@ -255,7 +258,7 @@ aws iam create-policy \
   --policy-document file://$(pwd)/infrastructure/velero-complete-policy.json
 ```
 
-### Step 9: Create Velero Trust Policy
+### Step 8: Create Velero Trust Policy
 Create `infrastructure/velero_trust_policy.json`:
 ```json
 {
@@ -278,7 +281,7 @@ Create `infrastructure/velero_trust_policy.json`:
 
 **CRITICAL**: Replace `ACCOUNT_ID`, `REGION`, and `OIDC_ID` with your actual values. Note the different namespace (`velero`) and service account (`velero`).
 
-### Step 10: Create Velero IAM Role
+### Step 9: Create Velero IAM Role
 ```bash
 # Create role
 aws iam create-role \
@@ -294,7 +297,7 @@ aws iam attach-role-policy \
 aws iam list-attached-role-policies --role-name velero-role
 ```
 
-### Step 11: Install Velero
+### Step 10: Install Velero
 Download Velero CLI:
 ```bash
 # For Mac
@@ -322,7 +325,7 @@ kubectl get pods -n velero
 # Should show velero pod Running
 ```
 
-### Step 12: Configure IRSA for Velero
+### Step 11: Configure IRSA for Velero
 ```bash
 # Annotate Velero service account
 kubectl annotate serviceaccount velero -n velero \
@@ -340,7 +343,7 @@ kubectl get sa velero -n velero -o yaml | grep role-arn
 
 ## Part 3: Complete Backup and Verification
 
-### Step 13: Create Complete Backup
+### Step 12: Create Complete Backup
 ```bash
 # Create backup with EBS snapshots
 ./velero-v1.12.1-darwin-amd64/velero backup create nginx-complete-backup \
@@ -353,7 +356,7 @@ kubectl get sa velero -n velero -o yaml | grep role-arn
 
 **Expected output**: `Phase: Completed` and `Velero-Native Snapshots: 1 of 1 snapshots completed successfully`
 
-### Step 14: Verify Complete Backup
+### Step 13: Verify Complete Backup
 Check S3 backup:
 ```bash
 aws s3 ls s3://$BUCKET_NAME/backups/ --recursive
@@ -368,7 +371,7 @@ aws ec2 describe-snapshots --owner-ids self \
 # Should show completed snapshot
 ```
 
-### Step 15: Test Application Access
+### Step 14: Test Application Access
 ```bash
 # Get LoadBalancer URL
 kubectl get svc nginx-service -n velero-test

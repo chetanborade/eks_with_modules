@@ -4,13 +4,13 @@
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::703460697499:oidc-provider/oidc.eks.ap-south-1.amazonaws.com/id/820CD1806CEDAD1A2865749015BA827A"
+        "Federated": "arn:aws:iam::703460697499:oidc-provider/oidc.eks.ap-south-1.amazonaws.com/id/C823116DC45DCAC85D836313BD23B350"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": {
-          "oidc.eks.ap-south-1.amazonaws.com/id/820CD1806CEDAD1A2865749015BA827A:sub": "system:serviceaccount:velero:velero",
-          "oidc.eks.ap-south-1.amazonaws.com/id/820CD1806CEDAD1A2865749015BA827A:aud": "sts.amazonaws.com"
+          "oidc.eks.ap-south-1.amazonaws.com/id/C823116DC45DCAC85D836313BD23B350:sub": "system:serviceaccount:velero:velero",
+          "oidc.eks.ap-south-1.amazonaws.com/id/C823116DC45DCAC85D836313BD23B350:aud": "sts.amazonaws.com"
         }
       }
     }
