@@ -1,7 +1,7 @@
 # Karpenter Installation and Configuration Steps
 
 ## Overview
-This document outlines the complete process for installing and configuring Karpenter on an existing EKS cluster.
+This document outlines the complete process for installing and configuring Karpenter on an existing EKS cluster. All critical fixes have been integrated into the appropriate steps to ensure a successful first-time installation.
 
 ## Prerequisites
 - EKS cluster running and accessible via kubectl
@@ -9,7 +9,7 @@ This document outlines the complete process for installing and configuring Karpe
 - Helm installed (for Karpenter installation)
 - kubectl configured to access the cluster
 
-## Step 1: Pre-Installation Planning
+## Step 1: Pre-Installation Planning and Resource Preparation
 
 ### 1.1 Verify Cluster Status
 Check that your EKS cluster is running and accessible.
@@ -41,6 +41,22 @@ export AWS_REGION="your-region"
 export AWS_ACCOUNT_ID="your-account-id"
 export OIDC_ID="your-oidc-id"
 ```
+
+### 1.4 CRITICAL: Tag AWS Resources for Karpenter Discovery
+**This must be done BEFORE creating the AWSNodeTemplate, or Karpenter will fail to provision nodes.**
+
+```bash
+# Get cluster VPC resources
+aws eks describe-cluster --name $CLUSTER_NAME --query 'cluster.resourcesVpcConfig.{VpcId:vpcId,SubnetIds:subnetIds,SecurityGroupIds:securityGroupIds}' --output json
+
+# Tag subnets for discovery (replace with your actual subnet IDs)
+aws ec2 create-tags --resources subnet-042f3433cd666dd57 subnet-0ece87fe94dc78aed --tags Key=karpenter.sh/discovery,Value=$CLUSTER_NAME
+
+# Tag security group for discovery (replace with your actual security group ID) 
+aws ec2 create-tags --resources sg-077e77c2cc18da300 --tags Key=karpenter.sh/discovery,Value=$CLUSTER_NAME
+```
+
+**Why this is critical:** Without these tags, Karpenter cannot discover which subnets and security groups to use for new instances, causing all provisioning to fail.
 
 ## Step 2: IAM Setup for Karpenter
 
@@ -86,6 +102,11 @@ aws iam attach-role-policy \
 aws iam attach-role-policy \
   --role-name KarpenterNodeRole \
   --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+
+# CRITICAL: Allow SSM parameter access for AMI discovery
+aws iam attach-role-policy \
+  --role-name KarpenterNodeRole \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
 ```
 
 **Step 4: Create instance profile**
@@ -246,7 +267,13 @@ aws iam create-role \
 # Attach the custom policy (replace ACCOUNT_ID with your actual account ID)
 aws iam attach-role-policy \
   --role-name KarpenterControllerRole \
-  --policy-arn arn:aws:iam::ACCOUNT_ID:policy/KarpenterControllerPolicy
+  --policy-arn arn:aws:iam::$AWS_ACCOUNT_ID:policy/KarpenterControllerPolicy
+
+# CRITICAL: Attach SSM read permissions for AMI discovery
+# Without this, Karpenter cannot discover EKS-optimized AMIs and will fail
+aws iam attach-role-policy \
+  --role-name KarpenterControllerRole \
+  --policy-arn arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess
 ```
 
 ### 2.3 Role Creation Order
@@ -385,17 +412,31 @@ spec:
   
   # Security groups (use your cluster's security groups)
   securityGroupSelector:
-    karpenter.sh/discovery: "preprod_eks_cluster"
+    karpenter.sh/discovery: "YOUR_CLUSTER_NAME"
   
   # Subnets (use your cluster's private subnets)
   subnetSelector:
-    karpenter.sh/discovery: "preprod_eks_cluster"
+    karpenter.sh/discovery: "YOUR_CLUSTER_NAME"
         
-  # Instance store policy
+  # CRITICAL: Use proper MIME format for userData in v0.16.3
+  # Simple bash format will cause "malformed MIME header" errors
   userData: |
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="BOUNDARY"
+
+    --BOUNDARY
+    Content-Type: text/x-shellscript; charset="us-ascii"
+
     #!/bin/bash
-    /etc/eks/bootstrap.sh preprod_eks_cluster
+    /etc/eks/bootstrap.sh YOUR_CLUSTER_NAME
+
+    --BOUNDARY--
 ```
+
+**Important Notes:**
+- Replace `YOUR_CLUSTER_NAME` with your actual cluster name
+- The MIME format userData is **required** for v0.16.3 - simple bash format will fail
+- The discovery selectors will only work if you tagged the resources in Step 1.4
 
 **Step 2: Apply the AWSNodeTemplate to the cluster**
 ```bash
@@ -408,12 +449,26 @@ kubectl get awsnodetemplate
 kubectl describe awsnodetemplate default
 ```
 
+**Step 4: Verify resource tagging**
+If you followed Step 1.4 correctly, you can verify the tags:
+```bash
+# Verify subnets are tagged
+aws ec2 describe-subnets --filters "Name=tag:karpenter.sh/discovery,Values=$CLUSTER_NAME" --query 'Subnets[].{SubnetId:SubnetId,AvailabilityZone:AvailabilityZone}' --output table
+
+# Verify security groups are tagged  
+aws ec2 describe-security-groups --filters "Name=tag:karpenter.sh/discovery,Values=$CLUSTER_NAME" --query 'SecurityGroups[].{GroupId:GroupId,GroupName:GroupName}' --output table
+```
+
+If the above commands return empty results, go back to Step 1.4 and tag your resources.
+
 **Key Differences in v0.16.3:**
 - Uses `AWSNodeTemplate` instead of `EC2NodeClass`
 - API version is `v1alpha1` instead of `v1beta1`
 - Uses `instanceProfile` instead of `role`
 - Uses `securityGroupSelector` instead of `securityGroupSelectorTerms`
 - Uses `subnetSelector` instead of `subnetSelectorTerms`
+- **Requires MIME format for userData**
+- **Requires discovery tags on AWS resources**
 
 ## Step 6: Create Provisioner Configuration
 
@@ -478,29 +533,179 @@ kubectl describe provisioner default
 - Different consolidation syntax: `consolidation.enabled` instead of `disruption.consolidationPolicy`
 - Limits wrapped in `resources:` section
 
-## Step 7: Test Karpenter Functionality
+**IMPORTANT: Spot Instance Permissions**
+If you encounter this error during testing:
+```
+ERROR: AuthFailure.ServiceLinkedRoleCreationNotPermitted: The provided credentials do not have permission to create the service-linked role for EC2 Spot Instances.
+```
 
-### 7.1 Deploy Test Application
-Create a deployment that requires more resources than current cluster capacity.
+**Immediate fix:** Modify the provisioner to use only on-demand instances:
+```yaml
+  requirements:
+    - key: karpenter.sh/capacity-type
+      operator: In
+      values: ["on-demand"]  # Remove "spot" until you get proper permissions
+```
+
+Then reapply:
+```bash
+kubectl apply -f karpenter-provisioner.yaml
+```
+
+**Long-term solution:** Have your AWS administrator create the EC2 Spot service-linked role:
+```bash
+aws iam create-service-linked-role --aws-service-name spot.amazonaws.com
+```
+
+## Step 7: Testing Karpenter Functionality
+
+### 7.1 Create Test Workload
+```bash
+# Create test deployment that exceeds current node capacity
+cat > karpenter-test-deployment.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: karpenter-test
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: karpenter-test
+  template:
+    metadata:
+      labels:
+        app: karpenter-test
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        resources:
+          requests:
+            cpu: 1000m  # 1 vCPU per pod
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+EOF
+
+kubectl apply -f karpenter-test-deployment.yaml
+```
 
 ### 7.2 Monitor Scaling Behavior
-Watch Karpenter provision new nodes automatically.
+```bash
+# Check pod status (should be Pending initially)
+kubectl get pods -l app=karpenter-test
 
-### 7.3 Test Consolidation
-Reduce workload and observe node consolidation.
+# Watch Karpenter logs for provisioning activity
+kubectl logs deployment/karpenter -n karpenter -c controller --follow
 
-## Step 8: Verification and Monitoring
+# Check for new nodes being created
+kubectl get nodes
 
-### 8.1 Verify Node Provisioning
-Check that nodes are created with correct specifications.
+# Expected: Karpenter should create new nodes within 1-2 minutes
+```
 
-### 8.2 Monitor Costs
-Compare costs before and after Karpenter implementation.
+### 7.3 Verification and Monitoring
 
-### 8.3 Test Different Instance Types
-Deploy workloads with different requirements to test instance selection.
+**Verify Node Provisioning:**
+```bash
+# Check that new nodes appear
+kubectl get nodes
+
+# Verify nodes have Karpenter labels
+kubectl get nodes --show-labels | grep karpenter
+
+# Check pods are scheduled on new nodes
+kubectl get pods -l app=karpenter-test -o wide
+```
+
+**Clean up test:**
+```bash
+kubectl delete deployment karpenter-test
+```
+
+### 7.4 Monitor Costs and Test Different Instance Types
+```bash
+# Monitor costs by checking instance types used
+kubectl get nodes --show-labels | grep karpenter
+
+# Test different instance types by deploying workloads with different requirements
+# See troubleshooting section for common test scenarios
+```
+
+## Step 8: Troubleshooting Common Issues
+
+**Note:** If you followed all the steps above correctly, you should not encounter these issues. This section is for reference if problems arise.
+
+### Issue 1: Karpenter Not Discovering Resources
+**Error:** Pods stay pending, no nodes created
+**Logs:** No provisioning activity in Karpenter logs
+**Cause:** Missing discovery tags on subnets/security groups (should have been done in Step 1.4)
+**Solution:** Go back to Step 1.4 and tag your resources properly
+
+### Issue 2: SSM Parameter Access Denied
+**Error:** `AccessDeniedException: not authorized to perform: ssm:GetParameter`
+**Cause:** Missing SSM permissions for AMI discovery (should have been done in Step 2.2)
+**Solution:** Verify the SSM policy was attached:
+```bash
+aws iam list-attached-role-policies --role-name KarpenterControllerRole | grep SSM
+```
+
+### Issue 3: UserData MIME Header Error  
+**Error:** `malformed MIME header: missing colon: "#!/bin/bash"`
+**Cause:** Wrong UserData format for v0.16.3 (should have been done correctly in Step 5.1)
+**Solution:** Verify your AWSNodeTemplate uses the MIME format shown in Step 5.1
+
+### Issue 4: Spot Instance Permission Error
+**Error:** `AuthFailure.ServiceLinkedRoleCreationNotPermitted`
+**Cause:** Missing permissions for EC2 Spot service-linked role (handled in Step 6.1)
+**Solution:** Already covered in Step 6.1 - use on-demand instances only
+
+### Issue 5: Nodes Created but Stay NotReady
+**Cause:** UserData script issues or networking problems
+**Solution:**
+```bash
+# Check node conditions
+kubectl describe node NODE_NAME
+
+# Check if nodes can communicate with API server
+kubectl get nodes -o wide
+
+# Verify security group allows cluster communication
+```
+
+### General Debugging Commands
+```bash
+# Check Karpenter controller status
+kubectl get pods -n karpenter
+
+# View Karpenter logs
+kubectl logs deployment/karpenter -n karpenter -c controller
+
+# Check AWSNodeTemplate status  
+kubectl describe awsnodetemplate default
+
+# Check Provisioner status
+kubectl describe provisioner default
+
+# List all nodes with details
+kubectl get nodes -o wide --show-labels
+```
+
+## Summary: What We Fixed
+
+By following these steps in chronological order, you avoid the 4 critical issues we encountered:
+
+1. **Missing Discovery Tags** (Fixed in Step 1.4) - Resources tagged before AWSNodeTemplate creation
+2. **Missing SSM Permissions** (Fixed in Step 2.2) - SSM policy attached during IAM role creation  
+3. **Wrong UserData Format** (Fixed in Step 5.1) - MIME format used from the beginning
+4. **Spot Instance Permissions** (Handled in Step 6.1) - Workaround provided upfront
 
 ## Next Steps
-- Fine-tune NodePool configurations
-- Implement production-ready monitoring
+- Fine-tune Provisioner configurations for different workload types
+- Implement production-ready monitoring and alerting
 - Plan migration from existing node groups (if applicable)
+- Set up cost monitoring and optimization
+- Configure multiple NodePools for different workload categories

@@ -17,7 +17,15 @@ spec:
   subnetSelector:
     karpenter.sh/discovery: "preprod_eks_cluster"
         
-  # Instance store policy
+  # User data for EKS bootstrap
   userData: |
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="BOUNDARY"
+
+    --BOUNDARY
+    Content-Type: text/x-shellscript; charset="us-ascii"
+
     #!/bin/bash
     /etc/eks/bootstrap.sh preprod_eks_cluster
+
+    --BOUNDARY--
