@@ -363,87 +363,120 @@ kubectl get pods -n karpenter
 
 **Step 4 Complete:** IRSA is configured and Karpenter can assume the IAM role to manage EC2 instances.
 
-## Step 5: Create EC2NodeClass
+## Step 5: Create AWSNodeTemplate
 
-### 5.1 Create EC2NodeClass Resource
+### 5.1 Create AWSNodeTemplate Resource
 This tells Karpenter how to configure the EC2 instances it creates.
 
+**Important:** For Karpenter v0.16.3, we use `AWSNodeTemplate` (not `EC2NodeClass`)
+
+**Step 1: Create the YAML file (e.g., `ec2nodeclass.yaml`)**
 ```yaml
-apiVersion: karpenter.k8s.aws/v1beta1
-kind: EC2NodeClass
+apiVersion: karpenter.k8s.aws/v1alpha1
+kind: AWSNodeTemplate
 metadata:
   name: default
 spec:
   # Use EKS optimized AMI
   amiFamily: AL2
   
-  # Use the node role we created
-  role: "KarpenterNodeInstanceProfile"
+  # Use the instance profile we created
+  instanceProfile: "KarpenterNodeInstanceProfile"
   
   # Security groups (use your cluster's security groups)
-  securityGroupSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  securityGroupSelector:
+    karpenter.sh/discovery: "preprod_eks_cluster"
   
   # Subnets (use your cluster's private subnets)
-  subnetSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: "${CLUSTER_NAME}"
+  subnetSelector:
+    karpenter.sh/discovery: "preprod_eks_cluster"
         
   # Instance store policy
   userData: |
     #!/bin/bash
-    /etc/eks/bootstrap.sh ${CLUSTER_NAME}
+    /etc/eks/bootstrap.sh preprod_eks_cluster
 ```
 
-## Step 6: Create NodePool Configuration
+**Step 2: Apply the AWSNodeTemplate to the cluster**
+```bash
+kubectl apply -f ec2nodeclass.yaml
+```
 
-### 6.1 Create Basic NodePool
-This defines what types of instances Karpenter can create.
+**Step 3: Verify the AWSNodeTemplate was created**
+```bash
+kubectl get awsnodetemplate
+kubectl describe awsnodetemplate default
+```
 
+**Key Differences in v0.16.3:**
+- Uses `AWSNodeTemplate` instead of `EC2NodeClass`
+- API version is `v1alpha1` instead of `v1beta1`
+- Uses `instanceProfile` instead of `role`
+- Uses `securityGroupSelector` instead of `securityGroupSelectorTerms`
+- Uses `subnetSelector` instead of `subnetSelectorTerms`
+
+## Step 6: Create Provisioner Configuration
+
+### 6.1 Create Basic Provisioner
+This defines what types of instances Karpenter can create and when to create them.
+
+**Important:** For Karpenter v0.16.3, we use `Provisioner` (not `NodePool`)
+
+**Step 1: Create the YAML file (e.g., `karpenter-provisioner.yaml`)**
 ```yaml
-apiVersion: karpenter.sh/v1beta1
-kind: NodePool
+apiVersion: karpenter.sh/v1alpha5
+kind: Provisioner
 metadata:
   name: default
 spec:
-  # Reference the EC2NodeClass we created
-  template:
-    metadata:
-      labels:
-        intent: apps
-    spec:
-      requirements:
-        - key: karpenter.sh/capacity-type
-          operator: In
-          values: ["spot", "on-demand"]
-        - key: node.kubernetes.io/instance-type
-          operator: In
-          values: ["t3.small", "t3.medium", "t3.large", "c5.large", "c5.xlarge"]
-        - key: kubernetes.io/arch
-          operator: In
-          values: ["amd64"]
-      nodeClassRef:
-        apiVersion: karpenter.k8s.aws/v1beta1
-        kind: EC2NodeClass
-        name: default
+  # Reference the AWSNodeTemplate we created
+  providerRef:
+    name: default
+  
+  # Instance requirements
+  requirements:
+    - key: karpenter.sh/capacity-type
+      operator: In
+      values: ["spot", "on-demand"]
+    - key: node.kubernetes.io/instance-type
+      operator: In
+      values: ["t3.small", "t3.medium", "t3.large", "c5.large", "c5.xlarge"]
+    - key: kubernetes.io/arch
+      operator: In
+      values: ["amd64"]
   
   # Set limits to control costs
   limits:
-    cpu: 1000
-    memory: 1000Gi
-    
+    resources:
+      cpu: 1000
+      memory: 1000Gi
+  
   # Automatic consolidation for cost savings
-  disruption:
-    consolidationPolicy: WhenUnderutilized
-    consolidateAfter: 30s
+  consolidation:
+    enabled: true
+  
+  # Node properties
+  labels:
+    intent: apps
 ```
 
-### 6.2 Apply NodePool Configuration
+**Step 2: Apply Provisioner Configuration**
 ```bash
-kubectl apply -f nodepool.yaml
-kubectl get nodepool
+kubectl apply -f karpenter-provisioner.yaml
 ```
+
+**Step 3: Verify Provisioner was created**
+```bash
+kubectl get provisioner
+kubectl describe provisioner default
+```
+
+**Key Differences in v0.16.3:**
+- Uses `Provisioner` instead of `NodePool`
+- API version is `v1alpha5` instead of `v1beta1`
+- Uses `providerRef` to reference `AWSNodeTemplate` (not `nodeClassRef`)
+- Different consolidation syntax: `consolidation.enabled` instead of `disruption.consolidationPolicy`
+- Limits wrapped in `resources:` section
 
 ## Step 7: Test Karpenter Functionality
 

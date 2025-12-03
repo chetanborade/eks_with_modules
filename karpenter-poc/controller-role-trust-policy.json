@@ -3,13 +3,13 @@
   "Statement": [{
     "Effect": "Allow", 
     "Principal": {
-      "Federated": "arn:aws:iam::703460697499:oidc-provider/oidc.eks.REGION.amazonaws.com/id/C823116DC45DCAC85D836313BD23B350"
+      "Federated": "arn:aws:iam::703460697499:oidc-provider/oidc.eks.ap-south-1.amazonaws.com/id/7CAD61B23877B5CDADBCE4E947CB5FC6"
     },
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {
-        "oidc.eks.REGION.amazonaws.com/id/C823116DC45DCAC85D836313BD23B350:sub": "system:serviceaccount:karpenter:karpenter",
-        "oidc.eks.REGION.amazonaws.com/id/C823116DC45DCAC85D836313BD23B350:aud": "sts.amazonaws.com"
+        "oidc.eks.ap-south-1.amazonaws.com/id/7CAD61B23877B5CDADBCE4E947CB5FC6:sub": "system:serviceaccount:karpenter:karpenter",
+        "oidc.eks.ap-south-1.amazonaws.com/id/7CAD61B23877B5CDADBCE4E947CB5FC6:aud": "sts.amazonaws.com"
       }
     }
   }]

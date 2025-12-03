@@ -1,0 +1,23 @@
+apiVersion: karpenter.k8s.aws/v1alpha1
+kind: AWSNodeTemplate
+metadata:
+  name: default
+spec:
+  # Use EKS optimized AMI
+  amiFamily: AL2
+  
+  # Use the instance profile we created
+  instanceProfile: "KarpenterNodeInstanceProfile"
+  
+  # Security groups (use your cluster's security groups)
+  securityGroupSelector:
+    karpenter.sh/discovery: "preprod_eks_cluster"
+  
+  # Subnets (use your cluster's private subnets)
+  subnetSelector:
+    karpenter.sh/discovery: "preprod_eks_cluster"
+        
+  # Instance store policy
+  userData: |
+    #!/bin/bash
+    /etc/eks/bootstrap.sh preprod_eks_cluster
