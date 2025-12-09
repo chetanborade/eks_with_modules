@@ -22,8 +22,8 @@ def main():
     if env == "development":
         cmd.extend(["--reload"])
     
-    print(f"🚀 Starting Game Engine on port {port}")
-    print(f"📚 Environment: {env}")
+    print(f"Starting Game Engine on port {port}")
+    print(f"Environment: {env}")
     
     # Change to src directory
     os.chdir(os.path.join(os.path.dirname(__file__), 'src'))
@@ -31,7 +31,7 @@ def main():
     try:
         subprocess.run(cmd)
     except KeyboardInterrupt:
-        print("\n👋 Game Engine stopped")
+        print("\nGame Engine stopped")
 
 if __name__ == "__main__":
     main()

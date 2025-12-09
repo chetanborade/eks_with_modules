@@ -66,17 +66,17 @@ function GameBoard({ user, onLogout }) {
     if (!game) return '';
     
     if (game.status === 'finished') {
-      if (game.winner === 'draw') return '🤝 Game ended in a draw!';
+      if (game.winner === 'draw') return 'Game ended in a draw!';
       const winner = game.players.find(p => p.symbol === game.winner);
-      return `🏆 ${winner?.username || game.winner} wins!`;
+      return `${winner?.username || game.winner} wins!`;
     }
     
-    if (game.status === 'waiting') return '⏳ Waiting for another player...';
+    if (game.status === 'waiting') return 'Waiting for another player...';
     
     const currentPlayer = game.players.find(p => p.user_id === game.current_turn);
     return game.current_turn === user.userId 
-      ? '🎯 Your turn!' 
-      : `⏳ ${currentPlayer?.username}'s turn`;
+      ? 'Your turn!' 
+      : `${currentPlayer?.username}'s turn`;
   };
 
   return (
@@ -93,14 +93,14 @@ function GameBoard({ user, onLogout }) {
             disabled={loading}
             className="game-mode-btn"
           >
-            🤖 Play vs AI
+            Play vs AI
           </button>
           <button 
             onClick={() => createGame('vs_human')} 
             disabled={loading}
             className="game-mode-btn"
           >
-            👥 Play vs Human
+            Play vs Human
           </button>
           {loading && <p>Creating game...</p>}
         </div>
@@ -112,7 +112,7 @@ function GameBoard({ user, onLogout }) {
               {game.players.map(player => (
                 <span key={player.user_id} className="player">
                   {player.symbol}: {player.username}
-                  {player.is_ai && ' 🤖'}
+                  {player.is_ai && ' (AI)'}
                 </span>
               ))}
             </div>
@@ -124,7 +124,7 @@ function GameBoard({ user, onLogout }) {
             onClick={() => setGame(null)}
             className="new-game-btn"
           >
-            🎮 New Game
+            New Game
           </button>
         </div>
       )}

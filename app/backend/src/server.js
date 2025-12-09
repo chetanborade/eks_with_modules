@@ -26,13 +26,13 @@ const PORT = process.env.PORT || 5000;
 async function startServer() {
   try {
     await initRedis();
-    console.log('✅ Redis connected');
+    console.log('Redis connected');
     
     app.listen(PORT, () => {
-      console.log(`🚀 Backend running on port ${PORT}`);
+      console.log(`Backend running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 }

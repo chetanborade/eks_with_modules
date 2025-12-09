@@ -12,26 +12,26 @@ const initRedis = async () => {
     });
 
     redisClient.on('error', (err) => {
-      console.error('❌ Redis Client Error:', err);
+      console.error('Redis Client Error:', err);
     });
 
     redisClient.on('connect', () => {
-      console.log('🔗 Connecting to Redis...');
+      console.log('Connecting to Redis...');
     });
 
     redisClient.on('ready', () => {
-      console.log('✅ Redis client ready');
+      console.log('Redis client ready');
     });
 
     await redisClient.connect();
     
     // Test connection
     await redisClient.ping();
-    console.log('🏓 Redis ping successful');
+    console.log('Redis ping successful');
     
     return redisClient;
   } catch (error) {
-    console.error('❌ Redis connection failed:', error);
+    console.error('Redis connection failed:', error);
     throw error;
   }
 };

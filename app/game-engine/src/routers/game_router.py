@@ -37,7 +37,7 @@ async def create_game(request: CreateGameRequest):
         if not success:
             raise HTTPException(status_code=500, detail="Failed to store game")
         
-        print(f"🎮 Game created: {game_id} by {request.created_by_username} ({request.game_mode})")
+        print(f"Game created: {game_id} by {request.created_by_username} ({request.game_mode})")
         
         return GameResponse(
             success=True,
@@ -46,7 +46,7 @@ async def create_game(request: CreateGameRequest):
         )
         
     except Exception as e:
-        print(f"❌ Create game error: {e}")
+        print(f"Create game error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create game: {str(e)}")
 
 @router.post("/join/{game_id}", response_model=GameResponse)
@@ -80,7 +80,7 @@ async def join_game(game_id: str, request: JoinGameRequest):
         
         await store_game(game_id, game_dict)
         
-        print(f"👥 {request.player_username} joined game: {game_id}")
+        print(f"{request.player_username} joined game: {game_id}")
         
         return GameResponse(
             success=True,
@@ -91,7 +91,7 @@ async def join_game(game_id: str, request: JoinGameRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Join game error: {e}")
+        print(f"Join game error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to join game: {str(e)}")
 
 @router.post("/move/{game_id}", response_model=MoveResponse)
@@ -128,9 +128,9 @@ async def make_move(game_id: str, request: MoveRequest):
         is_game_over = game_state.status.value == "finished"
         winner = game_state.winner if is_game_over else None
         
-        print(f"🎯 Move made in {game_id}: position {request.position}")
+        print(f"Move made in {game_id}: position {request.position}")
         if ai_move_data:
-            print(f"🤖 AI responded with position {ai_move_data['position']}")
+            print(f"AI responded with position {ai_move_data['position']}")
         
         return MoveResponse(
             success=True,
@@ -144,7 +144,7 @@ async def make_move(game_id: str, request: MoveRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Make move error: {e}")
+        print(f"Make move error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to make move: {str(e)}")
 
 @router.get("/state/{game_id}", response_model=GameResponse)
@@ -170,7 +170,7 @@ async def get_game_state(game_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Get game state error: {e}")
+        print(f"Get game state error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get game state: {str(e)}")
 
 @router.get("/list", response_model=GameListResponse)
@@ -200,5 +200,5 @@ async def list_games():
         )
         
     except Exception as e:
-        print(f"❌ List games error: {e}")
+        print(f"List games error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to list games: {str(e)}")

@@ -34,7 +34,7 @@ router.post('/login', async (req, res) => {
     await redisClient.setEx(`session:${sessionId}`, 86400, JSON.stringify(userSession));
     await redisClient.setEx(`user:${userId}`, 86400, JSON.stringify(userSession));
 
-    console.log(`👤 User logged in: ${trimmedUsername} (${userId})`);
+    console.log(`User logged in: ${trimmedUsername} (${userId})`);
 
     res.json({
       success: true,
@@ -47,7 +47,7 @@ router.post('/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Login error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -75,7 +75,7 @@ router.get('/verify/:sessionId', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Session verification error:', error);
+    console.error('Session verification error:', error);
     res.status(500).json({ error: 'Session verification failed' });
   }
 });
@@ -90,7 +90,7 @@ router.post('/logout/:sessionId', async (req, res) => {
     const sessionData = await redisClient.get(`session:${sessionId}`);
     if (sessionData) {
       const user = JSON.parse(sessionData);
-      console.log(`👋 User logged out: ${user.username}`);
+      console.log(`User logged out: ${user.username}`);
     }
 
     // Delete session
@@ -99,7 +99,7 @@ router.post('/logout/:sessionId', async (req, res) => {
     res.json({ success: true, message: 'Logged out successfully' });
 
   } catch (error) {
-    console.error('❌ Logout error:', error);
+    console.error('Logout error:', error);
     res.status(500).json({ error: 'Logout failed' });
   }
 });

@@ -9,7 +9,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🎮 Tic-Tac-Toe Battle</h1>
+        <h1>Tic-Tac-Toe Battle</h1>
         {user ? (
           <p>Welcome, <strong>{user.username}</strong>!</p>
         ) : (

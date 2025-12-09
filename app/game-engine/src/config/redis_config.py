@@ -20,10 +20,10 @@ async def init_redis():
         
         # Test connection
         await redis_client.ping()
-        print(f"✅ Game Engine Redis connected: {redis_url}")
+        print(f"Game Engine Redis connected: {redis_url}")
         
     except Exception as e:
-        print(f"❌ Redis connection failed: {e}")
+        print(f"Redis connection failed: {e}")
         raise e
 
 def get_redis_client() -> redis.Redis:
@@ -39,7 +39,7 @@ async def store_game(game_id: str, game_data: dict) -> bool:
         await client.setex(f"game:{game_id}", 3600, json.dumps(game_data))  # 1 hour TTL
         return True
     except Exception as e:
-        print(f"❌ Failed to store game {game_id}: {e}")
+        print(f"Failed to store game {game_id}: {e}")
         return False
 
 async def get_game(game_id: str) -> Optional[dict]:
@@ -52,7 +52,7 @@ async def get_game(game_id: str) -> Optional[dict]:
             return json.loads(game_data)
         return None
     except Exception as e:
-        print(f"❌ Failed to get game {game_id}: {e}")
+        print(f"Failed to get game {game_id}: {e}")
         return None
 
 async def delete_game(game_id: str) -> bool:
@@ -62,7 +62,7 @@ async def delete_game(game_id: str) -> bool:
         await client.delete(f"game:{game_id}")
         return True
     except Exception as e:
-        print(f"❌ Failed to delete game {game_id}: {e}")
+        print(f"Failed to delete game {game_id}: {e}")
         return False
 
 async def get_all_games() -> list:
@@ -80,5 +80,5 @@ async def get_all_games() -> list:
         
         return games
     except Exception as e:
-        print(f"❌ Failed to get games list: {e}")
+        print(f"Failed to get games list: {e}")
         return []

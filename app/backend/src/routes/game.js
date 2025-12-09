@@ -26,7 +26,7 @@ const verifySession = async (req, res, next) => {
     req.user = JSON.parse(sessionData);
     next();
   } catch (error) {
-    console.error('❌ Session verification error:', error);
+    console.error('Session verification error:', error);
     res.status(500).json({ error: 'Authentication failed' });
   }
 };
@@ -42,11 +42,11 @@ router.post('/create', verifySession, async (req, res) => {
       game_mode: gameMode
     });
 
-    console.log(`🎮 Game created: ${response.data.gameId} by ${req.user.username}`);
+    console.log(`Game created: ${response.data.gameId} by ${req.user.username}`);
     
     res.json(response.data);
   } catch (error) {
-    console.error('❌ Game creation error:', error);
+    console.error('Game creation error:', error);
     if (error.response) {
       res.status(error.response.status).json(error.response.data);
     } else {
@@ -65,11 +65,11 @@ router.post('/join/:gameId', verifySession, async (req, res) => {
       player_username: req.user.username
     });
 
-    console.log(`🔗 ${req.user.username} joined game: ${gameId}`);
+    console.log(`${req.user.username} joined game: ${gameId}`);
     
     res.json(response.data);
   } catch (error) {
-    console.error('❌ Game join error:', error);
+    console.error('Game join error:', error);
     if (error.response) {
       res.status(error.response.status).json(error.response.data);
     } else {
@@ -93,11 +93,11 @@ router.post('/move/:gameId', verifySession, async (req, res) => {
       position
     });
 
-    console.log(`🎯 Move made in game ${gameId}: position ${position} by ${req.user.username}`);
+    console.log(`Move made in game ${gameId}: position ${position} by ${req.user.username}`);
     
     res.json(response.data);
   } catch (error) {
-    console.error('❌ Move error:', error);
+    console.error('Move error:', error);
     if (error.response) {
       res.status(error.response.status).json(error.response.data);
     } else {
@@ -115,7 +115,7 @@ router.get('/state/:gameId', verifySession, async (req, res) => {
     
     res.json(response.data);
   } catch (error) {
-    console.error('❌ Get game state error:', error);
+    console.error('Get game state error:', error);
     if (error.response) {
       res.status(error.response.status).json(error.response.data);
     } else {
@@ -131,7 +131,7 @@ router.get('/list', verifySession, async (req, res) => {
     
     res.json(response.data);
   } catch (error) {
-    console.error('❌ Get games list error:', error);
+    console.error('Get games list error:', error);
     if (error.response) {
       res.status(error.response.status).json(error.response.data);
     } else {

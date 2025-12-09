@@ -31,9 +31,9 @@ async def startup_event():
     """Initialize connections on startup"""
     try:
         await init_redis()
-        print("✅ Game Engine started successfully")
+        print("Game Engine started successfully")
     except Exception as e:
-        print(f"❌ Failed to start Game Engine: {e}")
+        print(f"Failed to start Game Engine: {e}")
         raise e
 
 @app.get("/", response_model=HealthResponse)
