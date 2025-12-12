@@ -1,0 +1,45 @@
+name: Test CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'cicd-actions-argo-poc/test-ci/**'
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: tictactoe-frontend
+
+jobs:
+  build-and-push:
+    name: Build and Push Hello World to ECR
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push hello world image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: hello-world-${{ github.sha }}
+      run: |
+        cd cicd-actions-argo-poc/test-ci
+        echo "FROM nginx:alpine" > Dockerfile
+        echo "RUN echo '<h1>Hello World from GitHub Actions CI!</h1>' > /usr/share/nginx/html/index.html" >> Dockerfile
+        echo "EXPOSE 80" >> Dockerfile
+        echo "CMD [\"nginx\", \"-g\", \"daemon off;\"]" >> Dockerfile
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "Successfully pushed image: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
